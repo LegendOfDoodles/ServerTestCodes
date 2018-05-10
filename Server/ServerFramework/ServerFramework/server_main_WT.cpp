@@ -8,7 +8,7 @@
 
 
 //AWS에 이식할때 바꿔야할 부분
-#include "..\..\..\Client\Frameworks\Frameworks\Code\07.Network\protocol.h"
+#include "..\..\..\..\Client\Frameworks\Frameworks\Code\07.Network\protocol.h"
 //참조 헤더
 #include <thread>
 #include <vector>
@@ -213,6 +213,7 @@ void ProcessPacket(int id, char *packet)
 			//Debugging
 			cout << "Minion ID: [" << g_minions[g_ReuseMinion].m_id << "] Created\n";
 			p.Monster_id = g_minions[g_ReuseMinion].m_id;
+			g_MinionCounts++;
 		}
 		//빈곳이 없다.
 		else {
@@ -220,6 +221,7 @@ void ProcessPacket(int id, char *packet)
 			//Debugging
 			cout << "Minion ID: [" << g_minions[g_MinionCounts].m_id << "] Created\n";
 			p.Monster_id = g_minions[g_MinionCounts].m_id;
+			g_MinionCounts++;
 		}
 		p.size = sizeof(p);
 		p.type = SC_PUT_MINION;
