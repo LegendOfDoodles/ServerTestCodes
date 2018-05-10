@@ -1,0 +1,15 @@
+﻿  stdafx.cpp
+  TestClient.cpp
+c:\users\김선필\desktop\graduationwork\server\testclient\testclient\testclient\testclient.cpp(66): warning C4996: 'inet_addr': Use inet_pton() or InetPton() instead or define _WINSOCK_DEPRECATED_NO_WARNINGS to disable deprecated API warnings
+  c:\program files (x86)\windows kits\10\include\10.0.16299.0\um\winsock2.h(1830): note: 'inet_addr' 선언을 참조하십시오.
+TestClient.obj : error LNK2019: __imp__closesocket@4 외부 기호(참조 위치: _main 함수)에서 확인하지 못했습니다.
+TestClient.obj : error LNK2019: __imp__connect@12 외부 기호(참조 위치: _main 함수)에서 확인하지 못했습니다.
+TestClient.obj : error LNK2019: __imp__htons@4 외부 기호(참조 위치: _main 함수)에서 확인하지 못했습니다.
+TestClient.obj : error LNK2019: __imp__inet_addr@4 외부 기호(참조 위치: _main 함수)에서 확인하지 못했습니다.
+TestClient.obj : error LNK2019: __imp__recv@16 외부 기호(참조 위치: _main 함수)에서 확인하지 못했습니다.
+TestClient.obj : error LNK2019: __imp__send@16 외부 기호(참조 위치: _main 함수)에서 확인하지 못했습니다.
+TestClient.obj : error LNK2019: __imp__socket@12 외부 기호(참조 위치: _main 함수)에서 확인하지 못했습니다.
+TestClient.obj : error LNK2019: __imp__WSAStartup@8 외부 기호(참조 위치: _main 함수)에서 확인하지 못했습니다.
+TestClient.obj : error LNK2019: __imp__WSACleanup@0 외부 기호(참조 위치: _main 함수)에서 확인하지 못했습니다.
+TestClient.obj : error LNK2019: __imp__WSAGetLastError@0 외부 기호(참조 위치: "void __cdecl err_display(char *)" (?err_display@@YAXPAD@Z) 함수)에서 확인하지 못했습니다.
+C:\Users\김선필\Desktop\GraduationWork\Server\TestClient\TestClient\Debug\TestClient.exe : fatal error LNK1120: 10개의 확인할 수 없는 외부 참조입니다.
