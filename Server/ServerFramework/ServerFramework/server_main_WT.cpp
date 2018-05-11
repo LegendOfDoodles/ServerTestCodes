@@ -36,7 +36,7 @@ public:
 	int m_packet_size;  // 지금 조립하고 있는 패킷의 크기
 	int	m_prev_packet_size; // 지난번 recv에서 완성되지 않아서 저장해 놓은 패킷의 앞부분의 크기
 	char m_packet[MAX_PACKET_SIZE];
-	unordered_set <int> m_view_list;
+	unordered_set <int> m_viewlist;
 	//set? vector? map? list?
 	//view list has to insert, delete, search
 	//set : logN, logN, logN  : more easier than map, map has body 
@@ -44,7 +44,7 @@ public:
 	//vector : 1(push_back), N, N --> too big
 	//map : logN, logN, logN
 	//list: 1, 1, N : O(N) is too big to use....
-	mutex m_mVl; //mutex for view list
+	mutex m_mvl; //mutex for view list
 
 	Client()
 	{
@@ -101,6 +101,11 @@ bool CanSee(int a, int b)
 	int dist = dist_x*dist_x + dist_y*dist_y;
 	//don't use sqrt() in SERVER! 
 	return (VIEW_RADIUS * VIEW_RADIUS >= dist);
+}
+
+bool IsNPC(int id)
+{
+	return ((id >= NPC_START) && id < (NUM_OF_NPC));
 }
 
 void initialize()
@@ -165,8 +170,8 @@ void ProcessPacket(int id, char *packet)
 	CS_MsgChMove* MovePacket = reinterpret_cast<CS_MsgChMove*>(packet);
 	CS_MsgChCollision* CollisionPacket = reinterpret_cast<CS_MsgChCollision*>(packet);
 	CS_MsgMoDelete* DeleteMinionPacket = reinterpret_cast<CS_MsgMoDelete*>(packet);
-	int x = g_clients[id].m_x;
-	int y = g_clients[id].m_y;
+	int x = 0;
+	int y = 0;
 	//서버에서 클라로 보내줘야할 패킷들
 	SC_MsgMoCreate p;
 	cout << packet[1] << endl;
@@ -182,6 +187,8 @@ void ProcessPacket(int id, char *packet)
 		
 		g_clients[MovePacket->Character_id].m_x = MovePacket->x;
 		g_clients[MovePacket->Character_id].m_y = MovePacket->y;
+		x = MovePacket->x;
+		y = MovePacket->y;
 		cout << "Client[" << id << "] X is " << g_clients[MovePacket->Character_id].m_x << endl;
 		cout << "Client[" << id << "] Y is " << g_clients[MovePacket->Character_id].m_y << endl;
 		break;
@@ -243,9 +250,7 @@ void ProcessPacket(int id, char *packet)
 	}
 	case CS_DAMAND_MAKE_ROOM:
 	{
-		CS_MsgDemandMakeRoom p;
-		p.Character_id = id;
-		SendPacket(id, &p);
+		cout << "fuck!\n" << endl;
 		break;
 	}
 	default: 
@@ -275,87 +280,73 @@ void ProcessPacket(int id, char *packet)
 	SendPacket(id, &pos_packet);
 
 
-	for (auto& ob : new_vl)
-	{
-		g_clients[id].m_mVl.lock();
-
-		// new_vl에는 있는데, old_vl에는 없는 경우
-		if (0 == g_clients[id].m_view_list.count(ob))
-		{
-			g_clients[id].m_view_list.insert(ob);
-			g_clients[id].m_mVl.unlock();
-
+	// new_vl에는 있는데 old_vl에 없는 경우
+	for (auto ob : new_vl) {
+		g_clients[id].m_mvl.lock();
+		if (0 == g_clients[id].m_viewlist.count(ob)) {
+			g_clients[id].m_viewlist.insert(ob);
+			g_clients[id].m_mvl.unlock();
 			SendPutObjectPacket(id, ob);
 
-			g_clients[ob].m_mVl.lock();
-			if (0 == g_clients[ob].m_view_list.count(id))
-			{
-				g_clients[ob].m_view_list.insert(id);
-				g_clients[ob].m_mVl.unlock();
+			if (true == IsNPC(ob)) continue;
+			g_clients[ob].m_mvl.lock();
+			if (0 == g_clients[ob].m_viewlist.count(id)) {
+				g_clients[ob].m_viewlist.insert(id);
+				g_clients[ob].m_mvl.unlock();
 
 				SendPutObjectPacket(ob, id);
 			}
-			else
-			{
-				g_clients[ob].m_mVl.unlock();
+			else {
+				g_clients[ob].m_mvl.unlock();
 				SendPacket(ob, &pos_packet);
 			}
 		}
-
-		// new_vl에도 있고, old_vl에도 있는 경우
-		else
-		{
-			g_clients[id].m_mVl.unlock();
-			g_clients[ob].m_mVl.lock();
-			if (0 == g_clients[ob].m_view_list.count(id))
-			{
-				g_clients[ob].m_view_list.insert(id);
-				g_clients[ob].m_mVl.unlock();
-				SendPutObjectPacket(ob, id);
-			}
-			else
-			{
-				g_clients[ob].m_mVl.unlock();
+		else {
+			// new_vl에도 있고 old_vl에도 있는 경우
+			g_clients[id].m_mvl.unlock();
+			if (true == IsNPC(ob)) continue;
+			g_clients[ob].m_mvl.lock();
+			if (0 != g_clients[ob].m_viewlist.count(id)) {
+				g_clients[ob].m_mvl.unlock();
 				SendPacket(ob, &pos_packet);
+			}
+			else {
+				g_clients[ob].m_viewlist.insert(id);
+				g_clients[ob].m_mvl.unlock();
+				SendPutObjectPacket(ob, id);
 			}
 		}
 
 	}
 
-	// new_vl에는 없는데, old_vl에는 있는 경우
-	vector<int> to_remove;
-
-	g_clients[id].m_mVl.lock();
-	unordered_set<int> vl_copy = g_clients[id].m_view_list;
-	g_clients[id].m_mVl.unlock();
-
-	for (auto& ob : vl_copy)
-	{
-		if (0 == new_vl.count(ob))
-		{
+	// new_vl에는 없는데 old_vl에 있는 경우
+	vector <int> to_remove;
+	g_clients[id].m_mvl.lock();
+	unordered_set<int> vl_copy = g_clients[id].m_viewlist;
+	g_clients[id].m_mvl.unlock();
+	for (auto ob : vl_copy) {
+		if (0 == new_vl.count(ob)) {
 			to_remove.push_back(ob);
 
-			g_clients[ob].m_mVl.lock();
-
-			if (0 != g_clients[ob].m_view_list.count(id))
-			{
-				g_clients[ob].m_view_list.erase(id);
-				g_clients[ob].m_mVl.unlock();
-				SendRemovePacket(ob, id); // 상대가 나를 지우도록
+			if (true == IsNPC(ob)) continue;
+			g_clients[ob].m_mvl.lock();
+			if (0 != g_clients[ob].m_viewlist.count(id)) {
+				g_clients[ob].m_viewlist.erase(id);
+				g_clients[ob].m_mvl.unlock();
+				SendRemovePacket(ob, id);
 			}
-			else
-			{
-				g_clients[ob].m_mVl.unlock();
+			else {
+				g_clients[ob].m_mvl.unlock();
 			}
 		}
 	}
 
-	g_clients[id].m_mVl.lock();
-	for (auto& ob : to_remove) g_clients[id].m_view_list.erase(ob);
-	g_clients[id].m_mVl.unlock();
-
-	for (auto& ob : to_remove)
-		SendRemovePacket(id, ob); // 내가 상대를 지우도록
+	g_clients[id].m_mvl.lock();
+	for (auto ob : to_remove) g_clients[id].m_viewlist.erase(ob);
+	g_clients[id].m_mvl.unlock();
+	for (auto ob : to_remove) {
+		SendRemovePacket(id, ob);
+	}
 }
 
 void DisconnectPlayer(int id)
@@ -364,31 +355,24 @@ void DisconnectPlayer(int id)
 	p.Character_id = id;
 	p.size = sizeof(p);
 	p.type = SC_REMOVE_PLAYER;
-
-	for (int i = 0; i < MAX_USER; ++i)
-	{
-		if (!g_clients[i].m_isconnected)
-			continue;
-		if (i == id)
-			continue;
-
-		g_clients[i].m_mVl.lock();
-		if (0 != g_clients[i].m_view_list.count(id))
-		{
-			g_clients[i].m_view_list.erase(id);
-			g_clients[i].m_mVl.unlock();
+	for (int i = 0; i < MAX_USER; ++i) {
+		if (false == g_clients[i].m_isconnected) continue;
+		if (i == id) continue;
+		if (true == IsNPC(i)) break;
+		g_clients[i].m_mvl.lock();
+		if (0 != g_clients[i].m_viewlist.count(id)) {
+			g_clients[i].m_viewlist.erase(id);
+			g_clients[i].m_mvl.unlock();
 			SendPacket(i, &p);
 		}
-		else
-		{
-			g_clients[i].m_mVl.unlock();
+		else {
+			g_clients[i].m_mvl.unlock();
 		}
 	}
-
 	closesocket(g_clients[id].m_s);
-	g_clients[id].m_mVl.lock();
-	g_clients[id].m_view_list.clear();
-	g_clients[id].m_mVl.unlock();
+	g_clients[id].m_mvl.lock();
+	g_clients[id].m_viewlist.clear();
+	g_clients[id].m_mvl.unlock();
 	g_clients[id].m_isconnected = false;
 }
 
@@ -494,7 +478,7 @@ void accept_thread()	//새로 접속해 오는 클라이언트를 IOCP로 넘기는 역할
 		//clear for reuse
 		g_clients[id].m_packet_size = 0;
 		g_clients[id].m_prev_packet_size = 0;
-		g_clients[id].m_view_list.clear();
+		g_clients[id].m_viewlist.clear();
 		g_clients[id].m_x = 4;
 		g_clients[id].m_y = 4;
 
@@ -515,9 +499,9 @@ void accept_thread()	//새로 접속해 오는 클라이언트를 IOCP로 넘기는 역할
 			if (g_clients[i].m_isconnected) {
 				//check for in range of seeing
 				if (false == CanSee(i, id)) continue;
-				g_clients[id].m_mVl.lock();
-				g_clients[id].m_view_list.insert(id);
-				g_clients[id].m_mVl.unlock();
+				g_clients[id].m_mvl.lock();
+				g_clients[id].m_viewlist.insert(id);
+				g_clients[id].m_mvl.unlock();
 				SendPacket(i, &p);
 			}
 		}
@@ -534,9 +518,9 @@ void accept_thread()	//새로 접속해 오는 클라이언트를 IOCP로 넘기는 역할
 			p.x = g_clients[i].m_x;
 			p.y = g_clients[i].m_y;
 			
-			g_clients[id].m_mVl.lock();
-			g_clients[id].m_view_list.insert(i);
-			g_clients[id].m_mVl.unlock();
+			g_clients[id].m_mvl.lock();
+			g_clients[id].m_viewlist.insert(i);
+			g_clients[id].m_mvl.unlock();
 			SendPacket(id, &p);
 
 		}
