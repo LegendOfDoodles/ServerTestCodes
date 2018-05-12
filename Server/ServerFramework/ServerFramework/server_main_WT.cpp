@@ -49,8 +49,8 @@ public:
 	Client()
 	{
 		m_isconnected = false;
-		m_x = 4;
-		m_y = 4;
+		m_x = 500;
+		m_y = 2500;
 
 		ZeroMemory(&m_rxover.m_over, sizeof(WSAOVERLAPPED));
 		m_rxover.m_wsabuf.buf = m_rxover.m_iobuf;
@@ -110,6 +110,19 @@ bool IsNPC(int id)
 
 void initialize()
 {
+	g_clients[0].m_x = 500;
+	g_clients[0].m_y = 2500;
+
+	g_clients[1].m_x = 600;
+	g_clients[1].m_y = 2500;
+
+	g_clients[2].m_x = 9700;
+	g_clients[2].m_y = 2500;
+
+	g_clients[3].m_x = 9800;
+	g_clients[3].m_y = 2500;
+
+
 	gh_iocp = CreateIoCompletionPort(INVALID_HANDLE_VALUE, 0, 0, 0); // 의미없는 파라메터, 마지막은 알아서 쓰레드를 만들어준다.
 	std::wcout.imbue(std::locale("korean"));
 
@@ -206,6 +219,8 @@ void ProcessPacket(int id, char *packet)
 			break;
 		}
 	}*/
+
+	
 	//재사용을 할 필요가 있을까? --> 적용했는데 잘 안될경우 그냥 필요한 수만큼 선언.
 	case CS_PUT_MINION:
 	{
@@ -280,72 +295,80 @@ void ProcessPacket(int id, char *packet)
 	SendPacket(id, &pos_packet);
 
 
-	// new_vl에는 있는데 old_vl에 없는 경우
-	for (auto ob : new_vl) {
-		g_clients[id].m_mvl.lock();
-		if (0 == g_clients[id].m_viewlist.count(ob)) {
-			g_clients[id].m_viewlist.insert(ob);
-			g_clients[id].m_mvl.unlock();
-			SendPutObjectPacket(id, ob);
+	//// new_vl에는 있는데 old_vl에 없는 경우
+	//for (auto ob : new_vl) {
+	//	g_clients[id].m_mvl.lock();
+	//	if (0 == g_clients[id].m_viewlist.count(ob)) {
+	//		g_clients[id].m_viewlist.insert(ob);
+	//		g_clients[id].m_mvl.unlock();
+	//		SendPutObjectPacket(id, ob);
 
-			if (true == IsNPC(ob)) continue;
-			g_clients[ob].m_mvl.lock();
-			if (0 == g_clients[ob].m_viewlist.count(id)) {
-				g_clients[ob].m_viewlist.insert(id);
-				g_clients[ob].m_mvl.unlock();
+	//		if (true == IsNPC(ob)) continue;
+	//		g_clients[ob].m_mvl.lock();
+	//		if (0 == g_clients[ob].m_viewlist.count(id)) {
+	//			g_clients[ob].m_viewlist.insert(id);
+	//			g_clients[ob].m_mvl.unlock();
 
-				SendPutObjectPacket(ob, id);
-			}
-			else {
-				g_clients[ob].m_mvl.unlock();
-				SendPacket(ob, &pos_packet);
-			}
+	//			SendPutObjectPacket(ob, id);
+	//		}
+	//		else {
+	//			g_clients[ob].m_mvl.unlock();
+	//			SendPacket(ob, &pos_packet);
+	//		}
+	//	}
+	//	else {
+	//		// new_vl에도 있고 old_vl에도 있는 경우
+	//		g_clients[id].m_mvl.unlock();
+	//		if (true == IsNPC(ob)) continue;
+	//		g_clients[ob].m_mvl.lock();
+	//		if (0 != g_clients[ob].m_viewlist.count(id)) {
+	//			g_clients[ob].m_mvl.unlock();
+	//			SendPacket(ob, &pos_packet);
+	//		}
+	//		else {
+	//			g_clients[ob].m_viewlist.insert(id);
+	//			g_clients[ob].m_mvl.unlock();
+	//			SendPutObjectPacket(ob, id);
+	//		}
+	//	}
+
+	//}
+
+	//// new_vl에는 없는데 old_vl에 있는 경우
+	//vector <int> to_remove;
+	//g_clients[id].m_mvl.lock();
+	//unordered_set<int> vl_copy = g_clients[id].m_viewlist;
+	//g_clients[id].m_mvl.unlock();
+	//for (auto ob : vl_copy) {
+	//	if (0 == new_vl.count(ob)) {
+	//		to_remove.push_back(ob);
+
+	//		if (true == IsNPC(ob)) continue;
+	//		g_clients[ob].m_mvl.lock();
+	//		if (0 != g_clients[ob].m_viewlist.count(id)) {
+	//			g_clients[ob].m_viewlist.erase(id);
+	//			g_clients[ob].m_mvl.unlock();
+	//			SendRemovePacket(ob, id);
+	//		}
+	//		else {
+	//			g_clients[ob].m_mvl.unlock();
+	//		}
+	//	}
+	//}
+
+	//g_clients[id].m_mvl.lock();
+	//for (auto ob : to_remove) g_clients[id].m_viewlist.erase(ob);
+	//g_clients[id].m_mvl.unlock();
+	//for (auto ob : to_remove) {
+	//	SendRemovePacket(id, ob);
+	//}
+
+	for (int i = 0; i < MAX_USER; ++i)
+	{
+		if (g_clients[i].m_isconnected) {
+			if (id == i) continue;
+				SendPacket(i, &pos_packet);
 		}
-		else {
-			// new_vl에도 있고 old_vl에도 있는 경우
-			g_clients[id].m_mvl.unlock();
-			if (true == IsNPC(ob)) continue;
-			g_clients[ob].m_mvl.lock();
-			if (0 != g_clients[ob].m_viewlist.count(id)) {
-				g_clients[ob].m_mvl.unlock();
-				SendPacket(ob, &pos_packet);
-			}
-			else {
-				g_clients[ob].m_viewlist.insert(id);
-				g_clients[ob].m_mvl.unlock();
-				SendPutObjectPacket(ob, id);
-			}
-		}
-
-	}
-
-	// new_vl에는 없는데 old_vl에 있는 경우
-	vector <int> to_remove;
-	g_clients[id].m_mvl.lock();
-	unordered_set<int> vl_copy = g_clients[id].m_viewlist;
-	g_clients[id].m_mvl.unlock();
-	for (auto ob : vl_copy) {
-		if (0 == new_vl.count(ob)) {
-			to_remove.push_back(ob);
-
-			if (true == IsNPC(ob)) continue;
-			g_clients[ob].m_mvl.lock();
-			if (0 != g_clients[ob].m_viewlist.count(id)) {
-				g_clients[ob].m_viewlist.erase(id);
-				g_clients[ob].m_mvl.unlock();
-				SendRemovePacket(ob, id);
-			}
-			else {
-				g_clients[ob].m_mvl.unlock();
-			}
-		}
-	}
-
-	g_clients[id].m_mvl.lock();
-	for (auto ob : to_remove) g_clients[id].m_viewlist.erase(ob);
-	g_clients[id].m_mvl.unlock();
-	for (auto ob : to_remove) {
-		SendRemovePacket(id, ob);
 	}
 }
 
@@ -473,20 +496,19 @@ void accept_thread()	//새로 접속해 오는 클라이언트를 IOCP로 넘기는 역할
 			cout << "MAX USER Exceeded\n";
 			continue;
 		}
-		cout << "ID of new Client is [" << id << "]";
+		cout << "ID of new Client is [" << id << "]\n";
 		g_clients[id].m_s = cs;
 		//clear for reuse
 		g_clients[id].m_packet_size = 0;
 		g_clients[id].m_prev_packet_size = 0;
 		g_clients[id].m_viewlist.clear();
-		g_clients[id].m_x = 4;
-		g_clients[id].m_y = 4;
+		
 
 
 		CreateIoCompletionPort(reinterpret_cast<HANDLE>(cs), gh_iocp, id, 0);
 		g_clients[id].m_isconnected = true;
 		StartRecv(id);
-
+		
 		SC_Msg_Put_Character p;
 		p.Character_id = id;
 		p.size = sizeof(p);
@@ -504,16 +526,17 @@ void accept_thread()	//새로 접속해 오는 클라이언트를 IOCP로 넘기는 역할
 				g_clients[id].m_mvl.unlock();
 				SendPacket(i, &p);
 			}
+			
 		}
 
 		for (int i = 0; i < MAX_USER; ++i)
 		{
-			if (!g_clients[i].m_isconnected)
-				continue;
+			//if (!g_clients[i].m_isconnected)
+				//continue;
 			if (i == id)
 				continue;
 			//check for in range of seeing
-			if (false == CanSee(i, id)) continue;
+			//if (false == CanSee(i, id)) continue;
 			p.Character_id = i;
 			p.x = g_clients[i].m_x;
 			p.y = g_clients[i].m_y;
